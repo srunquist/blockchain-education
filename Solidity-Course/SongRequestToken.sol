@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";   
 
-/*
+/*****************************************************************************************************
 This was an academic exercise in ERC20 token creation & management created while learning Solidity. 
 It lets a customer purchase tokens representing a song request for a specific performer and at a 
 later time redeem the token to perform the request. (It's hard to imagine a real world scenario where 
@@ -17,14 +17,15 @@ cash out all their funds.
 Since each performer sets their own price, I'm not sure this is still an ERC20 token - seems
 like something else.
 
-github: @srunquist
+Developed and tested in Remix environment.
+https://github.com/srunquist/blockchain-education.git
 
 TODO:
     Test more thoroughly
     Perhaps add a tipping function (just en empty song request)
     Perhaps limit an account to 1 request per hour
     Push to a test network, push source to etherscan
-*/
+*****************************************************************************************************/
 
 contract SongRequestToken is Context, ERC20, Ownable {
     event PerfomerRegistered(address indexed performer, uint songPrice);
