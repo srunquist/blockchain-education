@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/utils/Context.sol";
 
 /*****************************************************************************************************
 This was an academic exercise in ERC20 token creation & management created while learning Solidity. 
+My goal for this excercise was correct code, without much attention to code size nor gas efficiency.
+
 It lets a customer purchase tokens representing a song request for a specific performer and at a 
 later time redeem the token to perform the request. (It's hard to imagine a real world scenario where 
 you would want this rather than a direct transfer of funds.)
@@ -90,12 +92,12 @@ contract SongRequestToken is Context, ERC20, Ownable {
         uint remainder = valueProvided - tokensToTransfer * tokenPriceInWei;
 
         // Credit X tokens to the message sender (buyer).
+        emit PuchasedSRT(performer, tokensToTransfer);
         _mint(_msgSender(), tokensToTransfer * 10 ** decimals());
         // Send back the change
         if (remainder > 0) {
             payable(_msgSender()).transfer(remainder);
         }
-        emit PuchasedSRT(performer, tokensToTransfer);
     }
 
     function withdrawTips() public virtual {
@@ -107,8 +109,8 @@ contract SongRequestToken is Context, ERC20, Ownable {
         _burn(performer, balance);
 
         uint valueOfBalance = balance * performerPricesInWei[performer] / 10 ** decimals();
-        payable(performer).transfer(valueOfBalance);
         emit CashedOut(performer, balance, valueOfBalance);
+        payable(performer).transfer(valueOfBalance);
     }
 
     // Spends 1 SRT from the caller's balance
@@ -138,8 +140,7 @@ contract SongRequestToken is Context, ERC20, Ownable {
         string memory comment
     ) public virtual {
         _validateRequest(performer, address(0));
-        require(transfer(performer, 1 * 10**decimals()), "Token transfer failed");
-        emit SongRequested(performer, _msgSender(), song, artist, comment);
+        _makeRequest(address(0), performer, song, artist, comment);
     }
 
     // Spends 1 SRT from a balance where the caller has been granted a sufficient allowance
@@ -160,7 +161,24 @@ contract SongRequestToken is Context, ERC20, Ownable {
         string memory comment
     ) public virtual {
         _validateRequest(performer, allowanceAt);
-        require(transferFrom(allowanceAt, performer, 1 * 10**decimals()), "Token transfer failed");
+        _makeRequest(allowanceAt, performer, song, artist, comment);
+    }
+
+    function _makeRequest(
+        address allowanceAt, 
+        address performer, 
+        string memory song, 
+        string memory artist, 
+        string memory comment
+    ) private {
+        bool success;
+        if (allowanceAt == address(0)) {
+            success = transfer(performer, 1 * 10**decimals());
+        }
+        else {
+            success = transferFrom(allowanceAt, performer, 1 * 10**decimals());
+        }
+        require(success, "Token transfer failed");
         emit SongRequested(performer, _msgSender(), song, artist, comment);
     }
 }
