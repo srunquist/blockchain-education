@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 /*****************************************************************************************************
 This was an academic exercise in ERC20 token creation & management created while learning Solidity. 
 My goal for this excercise was correct code, without much attention to code size nor gas efficiency.
+It is admittedly complex and due to known issues (see below) something that should never be used.
 
 It lets a customer purchase tokens representing a song request for a specific performer and at a 
 later time redeem the token to perform the request. (It's hard to imagine a real world scenario where 
@@ -17,7 +18,7 @@ Performers must register and set their price per song. Performers may update the
 cash out all their funds.
 
 Since each performer sets their own price, I'm not sure this is still an ERC20 token - seems
-like something else.
+like something else ... almost like a platform for personal tokens.
 
 Developed and tested in Remix environment.
 https://github.com/srunquist/blockchain-education.git
@@ -27,6 +28,12 @@ TODO:
     Perhaps add a tipping function (just en empty song request)
     Perhaps limit an account to 1 request per hour
     Push to a test network, push source to etherscan
+
+KNOWN ISSUES:
+    Contact could be exploited and drained: fan buys token for performer A who has a low song price
+        but creates their own performer account B with a very high song price. Fan spends the token by 
+        making a request of B. Then performer B withdraws the token, receiving more ETH than the contract was provided.
+        Preventing this would make the contract more unwieldy - not worth it for this academic exercise.
 *****************************************************************************************************/
 
 contract SongRequestToken is Context, ERC20, Ownable {
@@ -41,7 +48,7 @@ contract SongRequestToken is Context, ERC20, Ownable {
     constructor() ERC20("SongRequestToken", "SRT") {
         // Creator gets 10 tokens for testing
         // We use _msgSender() throughout to allow usage by a contract that sets the context to an externally-owned account.
-        _mint(_msgSender(), 10 * 10 ** decimals());
+        //_mint(_msgSender(), 10 * 10 ** decimals());
     }
 
     // Register a new performer. A performer may adjust their song price by re-registering.
@@ -101,16 +108,17 @@ contract SongRequestToken is Context, ERC20, Ownable {
     }
 
     function withdrawTips() public virtual {
-        address performer = _msgSender();
+        address payable performer = payable(_msgSender());
         require(performerPricesInWei[performer] > 0, "Only performers may withdraw");
-        uint balance = balanceOf(performer);
-        require(balance > 0, "Sorry, you have no tokens to cash out");
+        uint performersTokenBalance = balanceOf(performer);
+        require(performersTokenBalance > 0, "Sorry, you have no tokens to cash out");
 
-        _burn(performer, balance);
+        _burn(performer, performersTokenBalance);
 
-        uint valueOfBalance = balance * performerPricesInWei[performer] / 10 ** decimals();
-        emit CashedOut(performer, balance, valueOfBalance);
-        payable(performer).transfer(valueOfBalance);
+        uint valueOfTokenBalance = performersTokenBalance * performerPricesInWei[performer] / 10 ** decimals();
+        assert(address(this).balance >= valueOfTokenBalance);
+        emit CashedOut(performer, performersTokenBalance, valueOfTokenBalance);
+        performer.transfer(valueOfTokenBalance);
     }
 
     // Spends 1 SRT from the caller's balance
